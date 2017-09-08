@@ -38,6 +38,7 @@ import net.mcft.copy.backpacks.api.BackpackRegistry;
 import net.mcft.copy.backpacks.api.IBackpack;
 import net.mcft.copy.backpacks.api.IBackpackData;
 import net.mcft.copy.backpacks.api.IBackpackType;
+import net.mcft.copy.backpacks.api.BackpackRegistry.BackpackEntry;
 import net.mcft.copy.backpacks.block.entity.TileEntityBackpack;
 import net.mcft.copy.backpacks.container.SlotArmorBackpack;
 import net.mcft.copy.backpacks.item.DyeWashingHandler;
@@ -99,10 +100,7 @@ public class ProxyCommon {
 		if (!WearableBackpacks.CONFIG.spawn.enabled.get()) return;
 		// When a mob spawns naturally, see if it has a chance to spawn with a backpack.
 		EntityLivingBase entity = event.getEntityLiving();
-		List<BackpackRegistry.Entry> entries = BackpackRegistry.entities.get(entity.getClass());
-		if (entries == null) return; // Doesn't have any entries.
-		
-		for (BackpackRegistry.Entry entry : entries) {
+		for (BackpackEntry entry : BackpackRegistry.getBackpackEntries(entity.getClass())) {
 			if ((entry.chance == 0) || (entity.world.rand.nextDouble() > (1.0 / entry.chance))) continue;
 			BackpackCapability backpack = (BackpackCapability)entity.getCapability(IBackpack.CAPABILITY, null);
 			// Set the backpack capability of the entity to spawn with the specified backpack.
@@ -111,8 +109,7 @@ public class ProxyCommon {
 		}
 	}
 	/** Called when a mob spawns with a backpack with a 1 tick delay. */
-	private void onSpawnedWith(EntityLivingBase entity, BackpackCapability backpack,
-	                           BackpackRegistry.Entry entry) {
+	private void onSpawnedWith(EntityLivingBase entity, BackpackCapability backpack, BackpackEntry entry) {
 		ItemStack stack = new ItemStack(entry.backpack);
 		
 		// Set damage to a random amount (25% - 75%).

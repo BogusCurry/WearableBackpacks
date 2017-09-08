@@ -46,6 +46,9 @@ public class ListEntryEntityScreen extends BaseConfigScreen {
 	
 	public final GuiLabel labelTitleEntityName;
 	public final EntryEntityID entryEntityID;
+	public final EntryThreeDoubles entryTranslate;
+	public final EntryThreeDoubles entryScale;
+	public final EntryThreeDoubles entryRotate;
 	public final EntryListBackpack listBackpack;
 	public final GuiButton buttonCancel;
 	
@@ -56,9 +59,10 @@ public class ListEntryEntityScreen extends BaseConfigScreen {
 		_owningList = owningList;
 		_entry      = entry;
 		
-		List<BackpackEntry> entries = entry.map(EntryListSpawn.Entry::getValue)
-			.map(e -> e.entries).orElseGet(Collections::emptyList);
-		List<BackpackEntry> defaults = entry.map(EntryListSpawn.Entry::getValue)
+		Optional<BackpackEntityEntry> backpackEntry = entry.map(EntryListSpawn.Entry::getValue);
+		boolean hasDefault = backpackEntry.map(e -> SettingListSpawn.getDefaultEntityIDs().contains(e.entityID)).orElse(false);
+		List<BackpackEntry> entries = backpackEntry.map(e -> e.entries).orElseGet(Collections::emptyList);
+		List<BackpackEntry> defaults = backpackEntry
 			.flatMap(e -> SettingListSpawn.getDefaultValue().stream()
 				.filter(f -> f.entityID.equals(e.entityID)).findAny())
 			.map(e -> e.entries)
@@ -70,10 +74,20 @@ public class ListEntryEntityScreen extends BaseConfigScreen {
 		layoutTitle.addFixed(labelTitleEntityName);
 		
 		// Content
-		entryEntityID = new EntryEntityID(this);
-		listBackpack  = new EntryListBackpack(entries, defaults);
+		entryEntityID  = new EntryEntityID(this);
+		entryTranslate = new EntryThreeDoubles("spawn.translate", 0, 0, 0);
+		entryScale     = new EntryThreeDoubles("spawn.scale", 0, 0, 0);
+		entryRotate    = new EntryThreeDoubles("spawn.rotate", 0, 0, 0);
+		listBackpack   = new EntryListBackpack(entries, defaults);
 		
 		listEntries.addFixed(entryEntityID);
+		if (hasDefault) {
+			entryEntityID.setEnabled(false);
+		} else {
+			listEntries.addFixed(entryTranslate);
+			listEntries.addFixed(entryScale);
+			listEntries.addFixed(entryRotate);
+		}
 		listEntries.addFixed(listBackpack);
 		
 		// Buttons
@@ -138,7 +152,6 @@ public class ListEntryEntityScreen extends BaseConfigScreen {
 			addWeighted(field);
 			addFixed(buttonUndo);
 			
-			setEnabled(!SettingListSpawn.getDefaultEntityIDs().contains(field.getText()));
 			onChanged();
 		}
 		

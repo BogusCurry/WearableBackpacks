@@ -8,11 +8,10 @@ import net.minecraft.client.renderer.block.model.ModelResourceLocation;
 import net.minecraft.client.renderer.color.IItemColor;
 import net.minecraft.client.renderer.color.IBlockColor;
 import net.minecraft.client.renderer.entity.Render;
-import net.minecraft.client.renderer.entity.RenderBiped;
+import net.minecraft.client.renderer.entity.RenderLivingBase;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.client.renderer.entity.RenderPlayer;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
-import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EnumPlayerModelParts;
 import net.minecraft.item.ItemStack;
@@ -37,6 +36,7 @@ import net.mcft.copy.backpacks.WearableBackpacks;
 import net.mcft.copy.backpacks.api.BackpackHelper;
 import net.mcft.copy.backpacks.api.BackpackRegistry;
 import net.mcft.copy.backpacks.api.IBackpack;
+import net.mcft.copy.backpacks.api.BackpackRegistry.BackpackEntityEntry;
 import net.mcft.copy.backpacks.ProxyCommon;
 import net.mcft.copy.backpacks.block.entity.TileEntityBackpack;
 import net.mcft.copy.backpacks.client.BakedModelDefaultTexture;
@@ -79,10 +79,11 @@ public class ProxyClient extends ProxyCommon {
 		skinMap.get("default").addLayer(new RendererBackpack.Layer());
 		skinMap.get("slim").addLayer(new RendererBackpack.Layer());
 		
-		for (Class<? extends EntityLivingBase> entityClass : BackpackRegistry.entities.keySet()) {
-			Render<?> render = manager.getEntityClassRenderObject(entityClass);
-			if (!(render instanceof RenderBiped)) continue;
-			((RenderBiped<?>)render).addLayer(new RendererBackpack.Layer());
+		// FIXME: Add backpack render layer dynamically?
+		for (BackpackEntityEntry entry : BackpackRegistry.getEntityEntries()) {
+			Render<?> render = manager.getEntityClassRenderObject(entry.entityClass);
+			if (!(render instanceof RenderLivingBase)) continue;
+			((RenderLivingBase<?>)render).addLayer(new RendererBackpack.Layer());
 		}
 	}
 	

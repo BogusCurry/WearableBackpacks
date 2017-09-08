@@ -22,16 +22,17 @@ import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.common.util.INBTSerializable;
 import net.minecraftforge.fml.common.registry.EntityEntry;
 import net.minecraftforge.fml.common.registry.ForgeRegistries;
-
 import net.mcft.copy.backpacks.api.BackpackRegistry;
+import net.mcft.copy.backpacks.api.BackpackRegistry.BackpackEntityEntry;
+import net.mcft.copy.backpacks.api.BackpackRegistry.BackpackEntry;
 import net.mcft.copy.backpacks.config.Setting;
 import net.mcft.copy.backpacks.item.ItemBackpack;
 import net.mcft.copy.backpacks.misc.util.NbtUtils;
 import net.mcft.copy.backpacks.misc.util.NbtUtils.NbtType;
 
-public class SettingListSpawn extends Setting<List<SettingListSpawn.BackpackEntityEntry>> {
+public class SettingListSpawn extends Setting<List<BackpackEntityEntry>> {
 	
-	public static class BackpackEntityEntry implements INBTSerializable<NBTTagCompound> {
+	public static class _BackpackEntityEntry implements INBTSerializable<NBTTagCompound> {
 		
 		public static final String TAG_ID      = "id";
 		public static final String TAG_ENTRIES = "entries";
@@ -67,7 +68,7 @@ public class SettingListSpawn extends Setting<List<SettingListSpawn.BackpackEnti
 		
 	}
 	
-	public static class BackpackEntry implements INBTSerializable<NBTTagCompound> {
+	public static class _BackpackEntry implements INBTSerializable<NBTTagCompound> {
 		
 		public static final BackpackEntry DEFAULT = new BackpackEntry(
 			"wearablebackpacks:backpack", 1000, "wearablebackpacks:backpack/default");
@@ -196,47 +197,13 @@ public class SettingListSpawn extends Setting<List<SettingListSpawn.BackpackEnti
 		{ return NbtUtils.createTag(value); }
 	
 	
-	private static List<BackpackEntityEntry> _default;
-	private static Set<String> _entityIDs = new HashSet<>();
-	private static Set<String> _entryIDs  = new HashSet<>();
-	
-	public static List<BackpackEntityEntry> getDefaultValue() {
-		if (_default == null) {
-			_default = new ArrayList<>();
-			for (Map.Entry<Class<? extends EntityLivingBase>, List<BackpackRegistry.Entry>> entityEntry
-				: BackpackRegistry.entities.entrySet()) {
-				BackpackEntityEntry backpackEntry = new BackpackEntityEntry();
-				_default.add(backpackEntry);
-				
-				backpackEntry.entityID = ForgeRegistries.ENTITIES.getEntries().stream()
-					.filter(e -> e.getValue().getEntityClass() == entityEntry.getKey())
-					.findAny().map(e -> e.getKey().toString()).orElse(null);
-				if (backpackEntry.entityID == null) continue;
-				_entityIDs.add(backpackEntry.entityID);
-				
-				backpackEntry.entries = new ArrayList<>();
-				for (BackpackRegistry.Entry e : entityEntry.getValue()) {
-					if (e.id != null) _entryIDs.add(e.id);
-					String backpack = Item.REGISTRY.getNameForObject(e.backpack).toString();
-					backpackEntry.entries.add(new BackpackEntry(e.id, backpack, e.chance, e.lootTable));
-				}
-			}
-			_default.sort(Comparator.comparing(e -> e.entityID));
-		}
-		return _default;
-	}
-	public static Set<String> getDefaultEntityIDs()
-		{ getDefaultValue(); return _entityIDs; }
-	public static Set<String> getDefaultEntryIDs()
-		{ getDefaultValue(); return _entryIDs; }
-	
 	@Override
 	public void update() {
 		if (!isEnabled()) return;
-		getDefaultValue(); // Call to make sure default is initialized.
-		BackpackRegistry.entities.clear();
-		for (SettingListSpawn.BackpackEntityEntry entityEntry : get()) {
-			EntityEntry entry = ForgeRegistries.ENTITIES.getValue(new ResourceLocation(entityEntry.entityID));
+		
+		BackpackRegistry.setToDefault();
+		for (BackpackEntityEntry entityEntry : get()) {
+			EntityEntry entry = ForgeRegistries.ENTITIES.getValue(new ResourceLocation(entityEntry.));
 			// Ignore entry if entity is missing or not a subclass of EntityLivingBase.
 			if ((entry == null) || !EntityLivingBase.class.isAssignableFrom(entry.getEntityClass())) continue;
 			Class<? extends EntityLivingBase> entityClass = entry.getEntityClass().asSubclass(EntityLivingBase.class);
