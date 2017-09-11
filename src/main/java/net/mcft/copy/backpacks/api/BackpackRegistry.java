@@ -1,16 +1,20 @@
 package net.mcft.copy.backpacks.api;
 
+import java.util.AbstractMap;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.Item;
 import net.minecraft.util.ResourceLocation;
 
 import net.minecraftforge.fml.common.Loader;
@@ -18,168 +22,174 @@ import net.minecraftforge.fml.common.LoaderState;
 import net.minecraftforge.fml.common.registry.EntityEntry;
 import net.minecraftforge.fml.common.registry.ForgeRegistries;
 
-import net.mcft.copy.backpacks.item.ItemBackpack;
-
 public final class BackpackRegistry {
 	
 	private BackpackRegistry() {  }
 	
-	private static final Map<String, BackpackEntityEntry> _byID = new HashMap<>();
-	private static final Map<Class<? extends EntityLivingBase>, BackpackEntityEntry> _byClass = new HashMap<>();
-	static { addEntityEntry(new BackpackEntityEntry(EntityPlayer.class, RenderOptions.DEFAULT, true)); }
-	
-	/** Registers an entity as possible backpack carrier, meaning
-	 *  they'll get constructed with an IBackpack capability.
-	 *  Must be called in pre-initialization phase (or before). */
-	public static void registerEntity(Class<? extends EntityLivingBase> entityClass, RenderOptions renderOptions) {
-		if (Loader.instance().getLoaderState().compareTo(LoaderState.PREINITIALIZATION) > 0)
-			throw new IllegalStateException("Must be called during (or before) pre-initialization phase.");
-		addEntityEntry(new BackpackEntityEntry(entityClass, renderOptions, true));
-	}
 	/** Registers an entity as possible backpack carrier, meaning
 	 *  they'll get constructed with an IBackpack capability.
 	 *  Must be called in pre-initialization phase (or before). */
 	public static void registerEntity(String entityID, RenderOptions renderOptions) {
+		if (entityID == null) throw new NullPointerException("entityID must not be null");
+		if (_defaultEntities.stream().anyMatch(e -> e.entityID.equals(entityID)))
+			throw new IllegalArgumentException("entityID '" + entityID + "' has already been registered");
 		if (Loader.instance().getLoaderState().compareTo(LoaderState.PREINITIALIZATION) > 0)
 			throw new IllegalStateException("Must be called during (or before) pre-initialization phase.");
-		addEntityEntry(new BackpackEntityEntry(entityID, renderOptions, true));
+		_defaultEntities.add(new BackpackEntityEntry(entityID, renderOptions, new ArrayList<>(), true));
 	}
 	
-	/**
-	 * Registers a backpack to randomly spawn on the specified entity.
-	 * Must be called after registerEntity, in pre-initialization phase (or before).
+	/** Registers a backpack to randomly spawn on the specified entity.
+	 *  Must be called after registerEntity, in pre-initialization phase (or before).
 	 * 
-	 * @param entityID The entity to register to spawn with this backpack.
+	 * @param entityID   The entity to register to spawn with this backpack.
 	 * 
 	 * @param entryID    String uniquely identifying this entry for this entity.
 	 *                   For example "wearblebackpacks:default".
-	 * @param backpack   Backpack item to spawn on the entity (must implement IBackpackType).
+	 * @param backpack   Backpack item ID to spawn on the entity.
+	 *                   For example "wearablebackpacks:backpack".
 	 * @param chance     Chance in 1 out of X. For example 100 = 1% and 1000 = 0.1%.
 	 * @param lootTable  Loot table for the backpack when spawned on this mob (if any).
-	 * @param colorRange A range of colors to spawn the backpack with, or null if default.
+	 * @param colorRange A range of colors to spawn the backpack with, or null if default. 
 	 **/
 	public static void registerBackpack(String entityID,
-	                                    String entryID, ItemBackpack backpack, int chance,
+	                                    String entryID, String backpack, int chance,
 	                                    String lootTable, ColorRange colorRange) {
+		if (entityID == null) throw new NullPointerException("entityID must not be null");
+		if (entryID == null) throw new NullPointerException("entryID must not be null");
+		BackpackEntityEntry entityEntry = _defaultEntities.stream()
+			.filter(e -> e.entityID.equals(entityID)).findAny().orElseThrow(() ->
+				new IllegalStateException("entityID '" + entityID + "' has not been registered yet"));
+		if (entityEntry._backpackEntries.stream().anyMatch(e -> e.id.equals(entryID)))
+			throw new IllegalArgumentException("entryID '" + entryID + "' has already been used for entityID '" + entityID + "'");
 		if (Loader.instance().getLoaderState().compareTo(LoaderState.PREINITIALIZATION) > 0)
 			throw new IllegalStateException("Must be called during (or before) pre-initialization phase.");
-		if (entryID == null) throw new NullPointerException("id must not be null");
-		addBackpackEntry(entityID, new BackpackEntry(entryID, backpack, chance, lootTable, colorRange, true));
-	}
-	/**
-	 * Registers a backpack to randomly spawn on the specified entity.
-	 * Must be called after registerEntity, in pre-initialization phase (or before).
-	 * 
-	 * @param entityClass The entity to register to spawn with this backpack.
-	 * 
-	 * @param entityID   String uniquely identifying this entry for this entity.
-	 *                   For example "wearblebackpacks:default".
-	 * @param backpack   Backpack item to spawn on the entity (must implement IBackpackType).
-	 * @param chance     Chance in 1 out of X. For example 100 = 1% and 1000 = 0.1%.
-	 * @param lootTable  Loot table for the backpack when spawned on this mob (if any).
-	 * @param colorRange A range of colors to spawn the backpack with, or null if default.
-	 **/
-	public static void registerBackpack(Class<? extends EntityLivingBase> entityClass,
-	                                    String entityID, ItemBackpack backpack, int chance,
-	                                    String lootTable, ColorRange colorRange) {
-		if (Loader.instance().getLoaderState().compareTo(LoaderState.PREINITIALIZATION) > 0)
-			throw new IllegalStateException("Must be called during (or before) pre-initialization phase.");
-		if (entityID == null) throw new NullPointerException("id must not be null");
-		addBackpackEntry(entityClass, new BackpackEntry(entityID, backpack, chance, lootTable, colorRange, true));
+		entityEntry._backpackEntries.add(new BackpackEntry(entryID, backpack, chance, lootTable, colorRange, true));
 	}
 	
 	/** Returns if the specified entity should be able to wear backpacks.
 	 *  This affects whether the entity will be constructed with an IBackpack capability. */
-	public static boolean canEntityWearBackpacks(Entity entity)
-		{ return _byClass.containsKey(entity.getClass()); }
+	public static boolean canEntityWearBackpacks(Entity entity) {
+		return (entity != null) && EntityLivingBase.class.isAssignableFrom(entity.getClass())
+			? (getEntityEntry(entity.getClass().asSubclass(EntityLivingBase.class)) != null)
+			: false;
+	}
 	
 	
-	public static BackpackEntityEntry getEntityEntry(Class<? extends EntityLivingBase> entityClass)
-		{ return _byClass.get(entityClass); }
+	// Internal / semi-internal stuff
 	
-	public static Collection<BackpackEntityEntry> getEntityEntries()
-		{ return Collections.unmodifiableCollection(_byID.values()); }
+	private static final List<BackpackEntityEntry> _defaultEntities = new ArrayList<>();
+	private static final List<BackpackEntityEntry> _entities = new ArrayList<>();
+	private static final Map<String, Optional<Class<? extends EntityLivingBase>>> _entityClassLookupCache = new HashMap<>();
+	private static Map<Class<? extends EntityLivingBase>, BackpackEntityEntry> _entityEntryLookupCache = null;
 	
-	public static void addEntityEntry(BackpackEntityEntry value) {
-		if (value == null) throw new NullPointerException("value must not be null");
-		if (value.entityID != null) {
-			if (!_byID.containsKey(value.entityID)) _byID.put(value.entityID, value);
-			else BackpackHelper.LOG.warn("Attempted to add duplicate entry for ID " + value.entityID);
-		}
-		if (value.entityClass != null) {
-			if (!_byClass.containsKey(value.entityClass)) _byClass.put(value.entityClass, value);
-			else BackpackHelper.LOG.warn("Attempted to add duplicate entry for class " + value.entityClass.getName());
+	public static List<BackpackEntityEntry> getEntityEntries()
+		{ return Collections.unmodifiableList(_entities); }
+	public static List<BackpackEntityEntry> getDefaultEntityEntries()
+		{ return Collections.unmodifiableList(_defaultEntities); }
+	
+	public static BackpackEntityEntry getEntityEntry(String entityID)
+		{ return _entities.stream().filter(e -> e.entityID.equals(entityID)).findAny().orElse(null); }
+	
+	public static BackpackEntityEntry getEntityEntry(Class<? extends EntityLivingBase> entityClass) {
+		if (EntityPlayer.class.isAssignableFrom(entityClass))
+			return BackpackEntityEntry.PLAYER;
+		if (_entityEntryLookupCache == null)
+			_entityEntryLookupCache = ForgeRegistries.ENTITIES.getEntries().stream()
+				.map(e -> new AbstractMap.SimpleEntry<>(e.getValue().getEntityClass(), getEntityEntry(e.getKey().toString())))
+				.filter(e -> EntityLivingBase.class.isAssignableFrom(e.getKey()) && (e.getValue() != null))
+				.collect(Collectors.toMap(e -> e.getKey().asSubclass(EntityLivingBase.class), Map.Entry::getValue));
+		return _entityEntryLookupCache.get(entityClass);
+	}
+	
+	public static void updateEntityEntries(List<BackpackEntityEntry> value) {
+		mergeEntityEntriesWithDefault(_entities, value);
+		_entityEntryLookupCache = null;
+	}
+	public static void mergeEntityEntriesWithDefault(List<BackpackEntityEntry> dest, List<BackpackEntityEntry> value) {
+		dest.clear();
+		_defaultEntities.stream().map(BackpackEntityEntry::new).forEach(dest::add);
+		
+		for (BackpackEntityEntry entityEntry : value) {
+			BackpackEntityEntry defaultEntityEntry = getEntityEntry(entityEntry.entityID);
+			if (defaultEntityEntry != null) {
+				for (BackpackEntry backpackEntry : entityEntry._backpackEntries) {
+					int index = IntStream.range(0, defaultEntityEntry._backpackEntries.size())
+						.filter(i -> defaultEntityEntry._backpackEntries.get(i).id.equals(backpackEntry.id))
+						.findFirst().orElse(-1);
+					if (index >= 0) {
+						BackpackEntry existingBackpackEntry = defaultEntityEntry._backpackEntries.get(index);
+						defaultEntityEntry._backpackEntries.set(index, new BackpackEntry(
+							existingBackpackEntry.id,
+							existingBackpackEntry.backpack,
+							backpackEntry.chance,
+							existingBackpackEntry.lootTable,
+							existingBackpackEntry.colorRange));
+					} else defaultEntityEntry._backpackEntries.add(backpackEntry);
+				}
+			} else dest.add(entityEntry);
 		}
 	}
 	
 	public static List<BackpackEntry> getBackpackEntries(Class<? extends EntityLivingBase> entityClass) {
 		if (entityClass == null) throw new NullPointerException("entityClass must not be null");
-		BackpackEntityEntry entityEntry = _byClass.get(entityClass);
-		return (entityEntry != null)
-			? Collections.unmodifiableList(entityEntry._backpackEntries)
-			: Collections.emptyList();
-	}
-	
-	public static void addBackpackEntry(Class<? extends EntityLivingBase> entityClass, BackpackEntry value) {
-		if (entityClass == null) throw new NullPointerException("entityClass must not be null");
-		if (value == null) throw new NullPointerException("value must not be null");
-		BackpackEntityEntry entityEntry = _entities.get(entityClass);
-		if (entityEntry == null) throw new IllegalStateException("entityClass has not been registered: " + entityClass.getName());
-		entityEntry._backpackEntries.add(value);
-	}
-	
-	public static void setToDefault() {
-		_byID.entrySet().removeIf(e -> !e.getValue().isDefault);
-		_byID.values().forEach(e -> e._backpackEntries.removeIf(b -> !b.isDefault));
-		_byClass.entrySet().removeIf(e -> !e.getValue().isDefault);
-		_byClass.values().forEach(e -> e._backpackEntries.removeIf(b -> !b.isDefault));
+		BackpackEntityEntry entityEntry = getEntityEntry(entityClass);
+		return (entityEntry != null) ? entityEntry.getEntries() : Collections.emptyList();
 	}
 	
 	
 	public static final class BackpackEntityEntry {
 		
+		public static final BackpackEntityEntry PLAYER = new BackpackEntityEntry(
+			"<player>", RenderOptions.DEFAULT, Collections.emptyList());
+		
 		public final String entityID;
-		public final Class<? extends EntityLivingBase> entityClass;
 		public final RenderOptions renderOptions;
 		public final boolean isDefault;
 		
-		private final List<BackpackEntry> _backpackEntries = new ArrayList<>();
+		private final List<BackpackEntry> _backpackEntries;
 		
-		public BackpackEntityEntry(String entityID, RenderOptions renderOptions)
-			{ this(entityID, renderOptions, false); }
-		private BackpackEntityEntry(String entityID, RenderOptions renderOptions, boolean isDefault) {
-			this(entityID, Optional.ofNullable(ForgeRegistries.ENTITIES.getValue(new ResourceLocation(entityID)))
-					.map(EntityEntry::getEntityClass)
-					.filter(EntityLivingBase.class::isAssignableFrom)
-					// Java is not smart enough to figure this out without the hint! :(
-					.<Class<? extends EntityLivingBase>>map(c -> c.asSubclass(EntityLivingBase.class))
-					.orElse(null)
-				, renderOptions, isDefault);
+		public BackpackEntityEntry(String entityID, RenderOptions renderOptions,
+		                           List<BackpackEntry> entries)
+			{ this(entityID, renderOptions, entries, false); }
+		private BackpackEntityEntry(String entityID, RenderOptions renderOptions,
+		                            List<BackpackEntry> entries, boolean isDefault) {
 			if (entityID == null) throw new NullPointerException("entityID must not be null");
-		}
-		
-		public BackpackEntityEntry(Class<? extends EntityLivingBase> entityClass, RenderOptions renderOptions)
-			{ this(entityClass, renderOptions, false); }
-		private BackpackEntityEntry(Class<? extends EntityLivingBase> entityClass, RenderOptions renderOptions, boolean isDefault) {
-			this(ForgeRegistries.ENTITIES.getValues().stream()
-					.filter(e -> (e.getEntityClass() == entityClass)).findAny()
-					.map(e -> e.getRegistryName().toString()).orElse(null)
-				, entityClass, renderOptions, isDefault);
-			if (entityClass == null) throw new NullPointerException("entityID must not be null");
-		}
-		
-		private BackpackEntityEntry(String entityID, Class<? extends EntityLivingBase> entityClass,
-		                            RenderOptions renderOptions, boolean isDefault) {
 			if (renderOptions == null) throw new NullPointerException("renderOptions must not be null");
-			this.entityClass   = entityClass;
 			this.entityID      = entityID;
 			this.renderOptions = renderOptions;
 			this.isDefault     = isDefault;
+			_backpackEntries   = entries;
+		}
+		public BackpackEntityEntry(BackpackEntityEntry value) {
+			this(value.entityID, value.renderOptions,
+			     new ArrayList<>(value._backpackEntries), value.isDefault);
+		}
+		
+		public Class<? extends EntityLivingBase> getEntityClass() {
+			return _entityClassLookupCache.computeIfAbsent(entityID, id ->
+				Optional.ofNullable(ForgeRegistries.ENTITIES.getValue(new ResourceLocation(id)))
+					.map(EntityEntry::getEntityClass)
+					.filter(EntityLivingBase.class::isAssignableFrom)
+					.map(c -> c.asSubclass(EntityLivingBase.class))
+				).orElse(null);
+		}
+		
+		public List<BackpackEntry> getEntries()
+			{ return Collections.unmodifiableList(_backpackEntries); }
+		
+		@Override
+		public boolean equals(Object obj) {
+			if (!(obj instanceof BackpackEntityEntry)) return false;
+			BackpackEntityEntry other = (BackpackEntityEntry)obj;
+			return Objects.equals(entityID, entityID)
+				&& other.renderOptions.equals(renderOptions)
+				&& other._backpackEntries.equals(_backpackEntries);
 		}
 		
 	}
 	
 	public static final class RenderOptions {
+		
 		public static final RenderOptions DEFAULT = new RenderOptions(12, 2.5, 0, 0, 0.8);
 		
 		public final double x, y, z;
@@ -190,24 +200,35 @@ public final class BackpackRegistry {
 			this.x = x; this.y = y; this.z = z;
 			this.rotate = rotate; this.scale = scale;
 		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			if (!(obj instanceof RenderOptions)) return false;
+			RenderOptions other = (RenderOptions)obj;
+			return (other.x == x) && (other.y == y) && (other.z == z)
+				&& (other.rotate == rotate) && (other.scale == scale);
+		}
+		
 	}
 	
 	public static final class BackpackEntry {
+		
+		public static final BackpackEntry DEFAULT = new BackpackEntry(
+			null, "wearablebackpacks:backpack", 1000, "wearablebackpacks:backpack/default", null);
+		
 		public final String id;
-		public final ItemBackpack backpack;
+		public final String backpack;
 		public final int chance;
 		public final String lootTable;
-		public final ColorRange colorRange;
+		public final ColorRange colorRange; // TODO: Check if color is supported?
 		public final boolean isDefault;
-		// TODO: Check if color is supported?
 		
-		public BackpackEntry(String id, ItemBackpack backpack, int chance,
+		public BackpackEntry(String id, String backpack, int chance,
 		                     String lootTable, ColorRange colorRange)
 			{ this(id, backpack, chance, lootTable, colorRange, false); }
-		private BackpackEntry(String id, ItemBackpack backpack, int chance,
+		private BackpackEntry(String id, String backpack, int chance,
 		                      String lootTable, ColorRange colorRange, boolean isDefault) {
 			if (backpack == null) throw new NullPointerException("backpack must not be null");
-			if (!(backpack instanceof IBackpackType)) throw new IllegalArgumentException("backpack must be an IBackpackType");
 			if (chance < 0) throw new NullPointerException("chance must not be negative");
 			
 			this.id         = id;
@@ -217,15 +238,42 @@ public final class BackpackRegistry {
 			this.colorRange = colorRange;
 			this.isDefault  = isDefault;
 		}
+		
+		@SuppressWarnings("unchecked")
+		public <T extends Item & IBackpackType> T getBackpackItem() {
+			Item item = Item.getByNameOrId(backpack);
+			return (item instanceof IBackpackType) ? (T)item : null;
+		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			if (!(obj instanceof BackpackEntry)) return false;
+			BackpackEntry other = (BackpackEntry)obj;
+			return Objects.equals(other.id, id)
+				&& Objects.equals(other.backpack, backpack)
+				&& (other.chance == chance)
+				&& Objects.equals(other.lootTable, lootTable)
+				&& Objects.equals(other.colorRange, colorRange);
+		}
+		
 	}
 	
 	public static final class ColorRange {
+		
 		public static final ColorRange DEFAULT = new ColorRange(0x202020, 0xD0D0D0);
 		
 		public final int min, max;
 		
 		public ColorRange(int min, int max)
 			{ this.min = min; this.max = max; }
+		
+		@Override
+		public boolean equals(Object obj) {
+			if (!(obj instanceof ColorRange)) return false;
+			ColorRange other = (ColorRange)obj;
+			return (other.min == min) && (other.max == max);
+		}
+		
 	}
 	
 }

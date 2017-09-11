@@ -81,7 +81,7 @@ public class ProxyClient extends ProxyCommon {
 		
 		// FIXME: Add backpack render layer dynamically?
 		for (BackpackEntityEntry entry : BackpackRegistry.getEntityEntries()) {
-			Render<?> render = manager.getEntityClassRenderObject(entry.entityClass);
+			Render<?> render = manager.getEntityClassRenderObject(entry.getEntityClass());
 			if (!(render instanceof RenderLivingBase)) continue;
 			((RenderLivingBase<?>)render).addLayer(new RendererBackpack.Layer());
 		}
@@ -92,11 +92,11 @@ public class ProxyClient extends ProxyCommon {
 	
 	@SubscribeEvent
 	public void onModelBake(ModelBakeEvent event) {
-		MODEL_BACKPACK = bakeBlockModel("wearablebackpacks:block/backpack");
-		MODEL_BACKPACK_TOP = bakeBlockModel("wearablebackpacks:block/backpack_top");
+		MODEL_BACKPACK        = bakeBlockModel("wearablebackpacks:block/backpack");
+		MODEL_BACKPACK_TOP    = bakeBlockModel("wearablebackpacks:block/backpack_top");
 		MODEL_BACKPACK_STRAPS = bakeBlockModel("wearablebackpacks:block/backpack_straps");
 		
-		MODEL_BACKPACK_ENCH = new BakedModelDefaultTexture(MODEL_BACKPACK);
+		MODEL_BACKPACK_ENCH     = new BakedModelDefaultTexture(MODEL_BACKPACK);
 		MODEL_BACKPACK_ENCH_TOP = new BakedModelDefaultTexture(MODEL_BACKPACK_TOP);
 	}
 	private static IBakedModel bakeBlockModel(String location) {

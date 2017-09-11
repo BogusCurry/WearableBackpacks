@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.RenderHelper;
@@ -17,6 +18,9 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
 import net.mcft.copy.backpacks.WearableBackpacks;
+import net.mcft.copy.backpacks.api.BackpackRegistry.BackpackEntityEntry;
+import net.mcft.copy.backpacks.api.BackpackRegistry.BackpackEntry;
+import net.mcft.copy.backpacks.api.BackpackRegistry.RenderOptions;
 import net.mcft.copy.backpacks.client.gui.Direction;
 import net.mcft.copy.backpacks.client.gui.GuiElementBase;
 import net.mcft.copy.backpacks.client.gui.GuiLabel;
@@ -34,8 +38,6 @@ import net.mcft.copy.backpacks.config.Status;
 import net.mcft.copy.backpacks.config.Setting.ChangeRequiredAction;
 import net.mcft.copy.backpacks.config.Status.Severity;
 import net.mcft.copy.backpacks.config.custom.SettingListSpawn;
-import net.mcft.copy.backpacks.config.custom.SettingListSpawn.BackpackEntityEntry;
-import net.mcft.copy.backpacks.config.custom.SettingListSpawn.BackpackEntry;
 import net.mcft.copy.backpacks.item.ItemBackpack;
 
 @SideOnly(Side.CLIENT)
@@ -60,13 +62,9 @@ public class ListEntryEntityScreen extends BaseConfigScreen {
 		_entry      = entry;
 		
 		Optional<BackpackEntityEntry> backpackEntry = entry.map(EntryListSpawn.Entry::getValue);
-		boolean hasDefault = backpackEntry.map(e -> SettingListSpawn.getDefaultEntityIDs().contains(e.entityID)).orElse(false);
-		List<BackpackEntry> entries = backpackEntry.map(e -> e.entries).orElseGet(Collections::emptyList);
-		List<BackpackEntry> defaults = backpackEntry
-			.flatMap(e -> SettingListSpawn.getDefaultValue().stream()
-				.filter(f -> f.entityID.equals(e.entityID)).findAny())
-			.map(e -> e.entries)
-			.orElseGet(Collections::emptyList);
+		boolean isDefault = backpackEntry.map(e -> e.isDefault).orElse(false);
+		List<BackpackEntry> entries  = backpackEntry.map(BackpackEntityEntry::getEntries).orElseGet(Collections::emptyList);
+		List<BackpackEntry> defaults = entries.stream().filter(e -> e.isDefault).collect(Collectors.toList());
 		
 		// Title
 		labelTitleEntityName = new GuiLabel("");
@@ -81,7 +79,7 @@ public class ListEntryEntityScreen extends BaseConfigScreen {
 		listBackpack   = new EntryListBackpack(entries, defaults);
 		
 		listEntries.addFixed(entryEntityID);
-		if (hasDefault) {
+		if (isDefault) {
 			entryEntityID.setEnabled(false);
 		} else {
 			listEntries.addFixed(entryTranslate);
@@ -107,9 +105,14 @@ public class ListEntryEntityScreen extends BaseConfigScreen {
 	
 	@Override
 	protected void doneClicked() {
-		BackpackEntityEntry value = new BackpackEntityEntry();
-		value.entityID = entryEntityID.field.getText();
-		value.entries  = listBackpack.getValue();
+		RenderOptions renderOptions = new RenderOptions(
+			entryTranslate.getX().orElse(0.0),
+			entryTranslate.getY().orElse(0.0),
+			entryTranslate.getZ().orElse(0.0),
+			entryRotate
+		);
+		BackpackEntityEntry value = new BackpackEntityEntry(
+			entryEntityID.field.getText(), renderOptions, listBackpack.getValue());
 		
 		_entry.orElseGet(() -> (EntryListSpawn.Entry)_owningList.addEntry()).setValue(value);
 		GuiElementBase.display(parentScreen);

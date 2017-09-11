@@ -110,7 +110,7 @@ public class ProxyCommon {
 	}
 	/** Called when a mob spawns with a backpack with a 1 tick delay. */
 	private void onSpawnedWith(EntityLivingBase entity, BackpackCapability backpack, BackpackEntry entry) {
-		ItemStack stack = new ItemStack(entry.backpack);
+		ItemStack stack = new ItemStack(entry.getBackpackItem());
 		
 		// Set damage to a random amount (25% - 75%).
 		int maxDamage = stack.getMaxDamage();
@@ -135,7 +135,7 @@ public class ProxyCommon {
 			}
 		}
 		
-		IBackpackType type = (IBackpackType)entry.backpack;
+		IBackpackType type = entry.getBackpackItem();
 		IBackpackData data = type.createBackpackData(stack);
 		BackpackHelper.setEquippedBackpack(entity, stack, data);
 		type.onSpawnedWith(entity, backpack, entry.lootTable);
